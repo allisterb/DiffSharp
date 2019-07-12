@@ -24,3 +24,34 @@ let ``AD.32.R.D.FixedPoint``() =
     let g (a:D) (b:D) = (a + b / a) / (D 2.f)
     let p, t = jacobianTv' (D.FixedPoint g (D 1.2f)) (D 25.f) (D 1.f)
     Util.(=~)(p, D 5.f) && Util.(=~)(t, D 0.1f)
+
+[<Property>]
+let ``Compute Adjoint``() =
+    let tag = DiffSharp.Util.GlobalTagger.Next        
+    
+    let Wt = toDM [[0.0f; 1.0f]]
+    let Wt' = Wt |> makeReverse tag   
+    let loss (weights:DM) : D = cos (weights.Item(0,0))
+    
+    let L = loss Wt'
+    let A = computeAdjoints L //Smoke test computeAdjoints, was an issue with single precision
+
+    ()
+
+[<Property>]
+let ``Gradient descent``() =
+
+    let minimize (f:DV->D) (x0:DV) = 
+        let eta = 1e-2f
+        let mutable W = x0
+        for _ in [0..10] do
+            let L,g = grad' f W
+            W <- W - eta*g
+
+    let lossFunction (w:DV) =
+        let x = toDM [[1.0; 0.0]]
+        let Wg = w.[0..3] |> DM.ofDV 2
+        let g = (x*Wg)
+        cos g.[0,0]
+
+    minimize lossFunction (DV.create 5 1.0f) //Smoke test
